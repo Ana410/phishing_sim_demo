@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report Phishing Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a Gmail-style webmail shell (top search bar, left nav with Compose, rounded white main panel, add-on rail on the right) under a thin demo bar; the Report Phishing button is the one loud element. */
+:root{
+  --bg:#f6f8fc;
+  --surface:#ffffff;
+  --ink:#1f1f1f;
+  --muted:#5e5e5e;
+  --line:#e6e9ee;
+  --hover:#f2f6fc;
+  --nav-active:#d3e3fd;
+  --compose:#c2e7ff;
+  --search:#e9eef6;
+  --accent:#0b57d0;
+  --unread-row:#ffffff;
+  --read-row:#f2f6fc;
+  --report:#b3261e;
+  --report-hover:#8c1d18;
+  --flag:#c2410c;
+  --flag-bg:#fff1e8;
+  --ok:#146c2e;
+  --ok-bg:#e6f4ea;
+  --chip:#e8eaed;
+  --demo:#202124;
+  --demo-ink:#f1f3f4;
+  --shadow:0 4px 24px rgba(32,33,36,.22);
+  --sans:"Roboto", Arial, "Helvetica Neue", sans-serif;
+  --mono:"Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111318; --surface:#1b1d22; --ink:#e3e3e3; --muted:#a8abb2; --line:#2e3138;
+    --hover:#262a31; --nav-active:#004a77; --compose:#2b4b66; --search:#262a31; --accent:#a8c7fa;
+    --unread-row:#1b1d22; --read-row:#16181c; --report:#e2463d; --report-hover:#f05a51;
+    --flag:#fb923c; --flag-bg:#2d1d12; --ok:#6dd58c; --ok-bg:#16291c; --chip:#2e3138;
+    --demo:#000000; --demo-ink:#e3e3e3; --shadow:0 4px 24px rgba(0,0,0,.55);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111318; --surface:#1b1d22; --ink:#e3e3e3; --muted:#a8abb2; --line:#2e3138;
+  --hover:#262a31; --nav-active:#004a77; --compose:#2b4b66; --search:#262a31; --accent:#a8c7fa;
+  --unread-row:#1b1d22; --read-row:#16181c; --report:#e2463d; --report-hover:#f05a51;
+  --flag:#fb923c; --flag-bg:#2d1d12; --ok:#6dd58c; --ok-bg:#16291c; --chip:#2e3138;
+  --demo:#000000; --demo-ink:#e3e3e3; --shadow:0 4px 24px rgba(0,0,0,.55);
+  color-scheme: dark;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;display:flex;flex-direction:column}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+svg{display:block}
+.ico{width:20px;height:20px;fill:currentColor}
+.icon-btn{width:40px;height:40px;border-radius:50%;display:inline-grid;place-items:center;color:var(--muted);flex:none}
+.icon-btn:hover{background:var(--hover);color:var(--ink)}
+
+/* Demo bar */
+.demo-bar{background:var(--demo);color:var(--demo-ink);display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:6px 16px;font-size:13px}
+.demo-bar .tag{background:#f9ab00;color:#201600;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:3px}
+.demo-bar .spacer{flex:1}
+.demo-bar .score{font-variant-numeric:tabular-nums;opacity:.9}
+.demo-btn{border:1px solid rgba(255,255,255,.35);color:var(--demo-ink);padding:3px 10px;border-radius:4px;font-size:13px}
+.demo-btn[aria-pressed="true"]{background:#f9ab00;border-color:#f9ab00;color:#201600;font-weight:600}
+
+/* Top bar */
+.topbar{display:flex;align-items:center;gap:8px;padding:8px 16px 8px 8px;min-height:64px}
+.logo{display:flex;align-items:center;gap:8px;width:196px;flex:none;padding-left:4px;font-size:20px;color:var(--muted)}
+.logo-mark{width:32px;height:24px;flex:none}
+.logo b{color:var(--ink);font-weight:500}
+.search{flex:1;max-width:720px;display:flex;align-items:center;gap:6px;background:var(--search);border-radius:24px;height:48px;padding:0 6px;color:var(--muted)}
+.search span{flex:1;font-size:16px}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:2px}
+.avatar-top{width:32px;height:32px;border-radius:50%;background:#7b5ea7;color:#fff;display:grid;place-items:center;font-weight:500;margin-left:6px}
+
+/* Shell */
+.shell{flex:1;min-height:0;display:flex;padding-right:0}
+.nav{width:256px;flex:none;padding:0 12px 16px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.compose{display:inline-flex;align-items:center;gap:12px;background:var(--compose);border-radius:16px;height:56px;padding:0 20px 0 16px;font-weight:500;margin:0 0 14px;width:max-content;cursor:not-allowed}
+.compose:hover{box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.nav-item{display:flex;align-items:center;gap:18px;height:32px;padding:0 12px 0 20px;border-radius:0 16px 16px 0;color:var(--ink);font-size:14px}
+.nav-item .ico{color:var(--muted)}
+.nav-item.active{background:var(--nav-active);font-weight:700}
+.nav-item.active .ico{color:var(--ink)}
+.nav-item .count{margin-left:auto;font-size:12px;font-variant-numeric:tabular-nums}
+.nav-item.active .count{font-weight:700}
+
+.main{flex:1;min-width:0;background:var(--surface);border-radius:16px;margin:0 0 16px;display:flex;flex-direction:column;min-height:0;position:relative;overflow:hidden}
+.view{display:flex;flex-direction:column;min-height:0;flex:1}
+.view[hidden]{display:none}
+
+/* List view */
+.list-toolbar{display:flex;align-items:center;gap:2px;padding:4px 12px;min-height:48px}
+.list-toolbar .range{margin-left:auto;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.checkbox{width:18px;height:18px;border:2px solid var(--muted);border-radius:2px;display:inline-block}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tab{display:flex;align-items:center;gap:14px;height:56px;padding:0 16px;width:250px;max-width:33%;color:var(--muted);font-weight:500;position:relative}
+.tab.active{color:var(--accent)}
+.tab.active::after{content:"";position:absolute;left:8px;right:8px;bottom:0;height:3px;border-radius:3px 3px 0 0;background:var(--accent)}
+.rows{overflow-y:auto;flex:1;min-height:0}
+.row{display:flex;align-items:center;gap:8px;width:100%;text-align:left;height:40px;padding:0 16px 0 10px;border-bottom:1px solid var(--line);background:var(--read-row)}
+.row.unread{background:var(--unread-row);font-weight:700}
+.row:hover{box-shadow:inset 1px 0 0 #dadce0, inset -1px 0 0 #dadce0, 0 1px 2px rgba(60,64,67,.3);position:relative;z-index:1}
+.row .lead{display:flex;align-items:center;gap:10px;flex:none;color:var(--muted);padding-left:4px}
+.row .lead .checkbox{width:16px;height:16px}
+.row .star{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6}
+.row .who{width:200px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .what{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:400}
+.row.unread .what b{font-weight:700}
+.row .what b{font-weight:400}
+.row .what .snip{color:var(--muted)}
+.row .when{flex:none;font-size:12px;font-variant-numeric:tabular-nums}
+.row.unread .when{font-weight:700}
+.row.fresh{animation:arrive .8s ease-out}
+@keyframes arrive{from{background:var(--ok-bg)}}
+
+/* Message view */
+.msg-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:2px;padding:4px 12px;min-height:56px;border-bottom:1px solid var(--line)}
+.msg-toolbar .sep{width:1px;height:20px;background:var(--line);margin:0 8px}
+.msg-toolbar .spacer{flex:1}
+.report-btn{display:inline-flex;align-items:center;gap:8px;background:var(--report);color:#fff;border-radius:20px;height:40px;padding:0 18px 0 14px;font-weight:500;font-size:14px;letter-spacing:.01em;box-shadow:0 0 0 3px color-mix(in srgb, var(--report) 22%, transparent)}
+.report-btn:hover{background:var(--report-hover)}
+.report-btn .ico{width:20px;height:20px}
+.report-btn[disabled]{opacity:.45;cursor:default;box-shadow:none}
+.reader{flex:1;overflow-y:auto;min-height:0;padding:20px 24px 40px 72px}
+.subject-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 20px}
+.subject{font-size:22px;font-weight:400;line-height:1.3;margin:0;text-wrap:balance}
+.label-chip{background:var(--chip);color:var(--muted);font-size:12px;padding:1px 6px;border-radius:4px}
+.sender{display:flex;gap:12px;align-items:flex-start;margin:0 0 18px -56px}
+.avatar{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:500;color:#fff;flex:none;font-size:16px}
+.sender-main{flex:1;min-width:0}
+.sender-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px}
+.sender-name{font-weight:700}
+.sender-addr{color:var(--muted);font-size:12px;font-family:var(--mono)}
+.to-line{color:var(--muted);font-size:12px}
+.sender-side{display:flex;align-items:center;gap:2px;color:var(--muted);font-size:12px;white-space:nowrap}
+.ext-banner{display:flex;gap:10px;align-items:flex-start;background:#fef7e0;color:#3c2a00;border-radius:8px;padding:10px 14px;margin:0 0 18px;max-width:70ch;font-size:13px}
+.body{max-width:65ch;font-size:14px}
+.body p{margin:0 0 14px}
+.cta{display:inline-block;background:#1a73e8;color:#fff;text-decoration:none;font-weight:500;padding:10px 22px;border-radius:4px;margin:2px 0 14px}
+.sig{color:var(--muted)}
+.reply-row{display:flex;gap:10px;margin-top:28px;flex-wrap:wrap}
+.reply-pill{border:1px solid #747775;border-radius:18px;height:36px;padding:0 18px 0 14px;display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-weight:500}
+.resolution{border-left:3px solid var(--ok);background:var(--ok-bg);padding:10px 14px;border-radius:0 6px 6px 0;margin:0 0 14px}
+.ticket-meta{display:grid;grid-template-columns:max-content 1fr;gap:2px 14px;font-size:13px;background:var(--bg);border-radius:8px;padding:10px 14px;margin:0 0 16px;max-width:65ch}
+.ticket-meta dt{color:var(--muted)}
+.ticket-meta dd{margin:0;font-family:var(--mono);font-size:12px;align-self:center}
+.flags-mail{list-style:none;margin:0 0 16px;padding:0;display:flex;flex-direction:column;gap:8px;max-width:65ch}
+.flags-mail li{display:flex;gap:12px;border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.flags-mail .n{flex:none;width:22px;height:22px;border-radius:50%;background:var(--flag);color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center;margin-top:1px}
+.flags-mail b{display:block}
+.route-note{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px;margin-top:18px;max-width:65ch}
+
+/* Red flags */
+.flag{position:relative}
+body.show-flags .flag{outline:2px dashed var(--flag);outline-offset:3px;border-radius:3px;background:var(--flag-bg)}
+body.show-flags .flag::after{content:attr(data-n);position:absolute;top:-11px;right:-11px;width:20px;height:20px;border-radius:50%;background:var(--flag);color:#fff;font:700 11px/20px var(--sans);text-align:center}
+.flag-legend{display:none;margin-top:20px;border:1px solid var(--flag);border-radius:8px;padding:12px 16px;max-width:65ch;background:var(--flag-bg)}
+body.show-flags .flag-legend{display:block}
+.flag-legend h3{margin:0 0 6px;font-size:14px;color:var(--flag)}
+.flag-legend ol{margin:0;padding-left:20px}
+
+/* Browser-style link preview */
+.statusbar{position:fixed;left:0;bottom:0;max-width:60%;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-left:0;border-bottom:0;border-radius:0 6px 0 0;padding:3px 10px;font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:none;z-index:15}
+.statusbar.open{display:block}
+
+/* Add-on rail and panel */
+.rail{width:56px;flex:none;display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:4px}
+.rail .rail-sep{width:20px;height:1px;background:var(--line);margin:4px 0}
+.rail-addon{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;position:relative}
+.rail-addon:hover{background:var(--hover)}
+.rail-addon.active{background:var(--nav-active)}
+.rail-addon .shield{width:22px;height:22px;fill:var(--report)}
+.rail-dot{width:22px;height:22px;border-radius:6px}
+.addon-panel{width:300px;flex:none;background:var(--surface);border-radius:16px;margin:0 0 16px 8px;display:flex;flex-direction:column;overflow:hidden}
+.addon-panel[hidden]{display:none}
+.addon-head{display:flex;align-items:center;gap:10px;padding:12px 8px 12px 16px;border-bottom:1px solid var(--line);font-weight:500}
+.addon-head .shield{width:22px;height:22px;fill:var(--report)}
+.addon-head .icon-btn{margin-left:auto}
+.addon-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+.addon-body p{margin:0;color:var(--muted)}
+.addon-body .report-btn{justify-content:center}
+.addon-note{font-size:12px;color:var(--muted)}
+
+/* Dialogs */
+.overlay{position:fixed;inset:0;background:rgba(32,33,36,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:20}
+.overlay.open{display:flex}
+.dialog{background:var(--surface);color:var(--ink);border-radius:24px;box-shadow:var(--shadow);width:min(520px,100%);max-height:calc(100% - 32px);overflow-y:auto;padding:24px}
+.dialog h2{margin:0 0 10px;font-size:22px;font-weight:400;text-wrap:balance}
+.dialog p{margin:0 0 12px;color:var(--muted)}
+.dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;flex-wrap:wrap}
+.btn{border-radius:20px;height:40px;padding:0 20px;font-weight:500;color:var(--accent)}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--report);color:#fff}
+.btn.primary:hover{background:var(--report-hover)}
+.btn.go{background:var(--accent);color:var(--surface)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 10px;border-radius:999px;margin-bottom:10px}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.warn{background:var(--flag-bg);color:var(--flag)}
+.dialog ul{margin:0 0 12px;padding-left:20px}
+.dialog li{margin-bottom:4px}
+.ticket{font-family:var(--mono);font-size:13px;background:var(--bg);border-radius:8px;padding:8px 12px;margin:8px 0 4px}
+.training{width:min(640px,100%)}
+.tip{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:8px}
+.tip b{display:block}
+.mini-report{display:inline-flex;align-items:center;background:var(--report);color:#fff;border-radius:12px;padding:0 10px;font-size:13px;font-weight:500}
+
+/* Toast (snackbar) */
+.toast{position:fixed;bottom:24px;left:24px;background:#303030;color:#f2f2f2;padding:14px 20px;border-radius:4px;box-shadow:var(--shadow);font-size:14px;display:none;z-index:30;max-width:calc(100% - 48px)}
+.toast.open{display:block}
+
+@media (max-width: 1100px){ .addon-panel{position:absolute;right:64px;top:0;bottom:16px;box-shadow:var(--shadow);z-index:10} .shell{position:relative} }
+@media (max-width: 900px){
+  .nav{display:none}
+  .logo{width:auto}
+  .main{margin-left:8px}
+  .row .who{width:130px}
+}
+@media (max-width: 640px){
+  .search span{font-size:14px}
+  .logo b, .logo span{display:none}
+  .top-right .icon-btn{display:none}
+  .rail{display:none}
+  .addon-panel{right:8px;width:calc(100% - 16px)}
+  .main{margin:0 8px 8px}
+  .reader{padding:16px 16px 32px}
+  .sender{margin-left:0}
+  .row .snip{display:none}
+  .row .who{width:110px}
+  .tab{width:auto;padding:0 12px}
+  .tab .ico{display:none}
+  .msg-toolbar .report-btn{order:-1;width:100%;justify-content:center;margin-bottom:4px}
+  .msg-toolbar .spacer{display:none}
+}
+@media (prefers-reduced-motion: reduce){ .row.fresh{animation:none} }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+    <symbol id="i-tune" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><path d="M11 18h2v-2h-2v2zm1-16a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm0-14a4 4 0 0 0-4 4h2a2 2 0 1 1 4 0c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5a4 4 0 0 0-4-4z"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.84a.5.5 0 0 0-.49.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.67 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.61.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.25.42.49.42h3.84c.24 0 .45-.18.49-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/></symbol>
+    <symbol id="i-apps" viewBox="0 0 24 24"><path d="M6 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm6 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm-6 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0-6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm6 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm4-8a2 2 0 1 0 4 0 2 2 0 0 0-4 0zm-4 2a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm6 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 12h-4a3 3 0 0 1-6 0H5V5h14v10z"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></symbol>
+    <symbol id="i-draft" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></symbol>
+    <symbol id="i-spam" viewBox="0 0 24 24"><path d="M15.73 3H8.27L3 8.27v7.46L8.27 21h7.46L21 15.73V8.27L15.73 3zM19 14.9L14.9 19H9.1L5 14.9V9.1L9.1 5h5.8L19 9.1v5.8zM11 7h2v6h-2V7zm0 8h2v2h-2v-2z"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><path d="M20.54 5.23l-1.39-1.68A1.45 1.45 0 0 0 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23A1.98 1.98 0 0 0 3 6.5V19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M15 4V3H9v1H4v2h1v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6h1V4h-5zm2 15H7V6h10v13zM9 8h2v9H9V8zm4 0h2v9h-2V8z"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></symbol>
+    <symbol id="i-reply" viewBox="0 0 24 24"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></symbol>
+    <symbol id="i-forward" viewBox="0 0 24 24"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M17.63 5.84A2 2 0 0 0 16 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16zM16 17H5V7h11l3.55 5L16 17z"/></symbol>
+    <symbol id="i-people" viewBox="0 0 24 24"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05A4.22 4.22 0 0 1 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm1 16h-2v-2h2v2zm0-4h-2V7h2v6z"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><path d="M11 7h2v2h-2V7zm0 4h2v6h-2v-6zm1-9a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></symbol>
+  </defs>
+</svg>
+
+<div class="demo-bar" role="region" aria-label="Demo controls">
+  <span class="tag">Training demo</span>
+  <strong>Simulated phishing exercise</strong>
+  <span>Nothing on this page collects or sends any information.</span>
+  <span class="spacer"></span>
+  <span class="score" id="score">Reports this semester: 2</span>
+  <button class="demo-btn" id="flagsToggle" aria-pressed="false" type="button">Show red flags</button>
+  <button class="demo-btn" id="resetBtn" type="button">Reset demo</button>
+</div>
+
+<header class="topbar">
+  <button class="icon-btn" type="button" aria-label="Main menu" data-noop><svg class="ico"><use href="#i-menu"/></svg></button>
+  <div class="logo">
+    <svg class="logo-mark" viewBox="0 0 32 24" aria-hidden="true"><rect x="1" y="2" width="30" height="20" rx="3" fill="#500000"/><path d="M3 5l13 9 13-9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/></svg>
+    <b>University</b><span>&nbsp;Mail</span>
+  </div>
+  <div class="search" role="search">
+    <span class="icon-btn" aria-hidden="true"><svg class="ico"><use href="#i-search"/></svg></span>
+    <span>Search mail</span>
+    <span class="icon-btn" aria-hidden="true"><svg class="ico"><use href="#i-tune"/></svg></span>
+  </div>
+  <div class="top-right">
+    <button class="icon-btn" type="button" aria-label="Support" data-noop><svg class="ico"><use href="#i-help"/></svg></button>
+    <button class="icon-btn" type="button" aria-label="Settings" data-noop><svg class="ico"><use href="#i-gear"/></svg></button>
+    <button class="icon-btn" type="button" aria-label="Apps" data-noop><svg class="ico"><use href="#i-apps"/></svg></button>
+    <span class="avatar-top" aria-label="Jordan Rivera">J</span>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="nav" aria-label="Mail folders">
+    <button class="compose" type="button" data-noop><svg class="ico"><use href="#i-pencil"/></svg>Compose</button>
+    <a class="nav-item active" id="navInbox"><svg class="ico"><use href="#i-inbox"/></svg>Inbox<span class="count" id="unreadCount">3</span></a>
+    <a class="nav-item"><svg class="ico"><use href="#i-star"/></svg>Starred</a>
+    <a class="nav-item"><svg class="ico"><use href="#i-clock"/></svg>Snoozed</a>
+    <a class="nav-item"><svg class="ico"><use href="#i-send"/></svg>Sent</a>
+    <a class="nav-item"><svg class="ico"><use href="#i-draft"/></svg>Drafts</a>
+    <a class="nav-item"><svg class="ico"><use href="#i-spam"/></svg>Spam<span class="count" id="spamCount"></span></a>
+  </nav>
+
+  <main class="main" aria-label="Mail">
+    <section class="view" id="listView" hidden>
+      <div class="list-toolbar">
+        <span class="icon-btn" aria-hidden="true"><span class="checkbox"></span></span>
+        <button class="icon-btn" type="button" aria-label="Refresh" data-noop><svg class="ico"><use href="#i-refresh"/></svg></button>
+        <button class="icon-btn" type="button" aria-label="More" data-noop><svg class="ico"><use href="#i-more"/></svg></button>
+        <span class="range" id="range">1–3 of 3</span>
+      </div>
+      <div class="tabs" role="tablist">
+        <div class="tab active" role="tab" aria-selected="true"><svg class="ico"><use href="#i-inbox"/></svg>Primary</div>
+        <div class="tab" role="tab" aria-selected="false"><svg class="ico"><use href="#i-tag"/></svg>Promotions</div>
+        <div class="tab" role="tab" aria-selected="false"><svg class="ico"><use href="#i-people"/></svg>Social</div>
+      </div>
+      <div class="rows" id="rows"></div>
+    </section>
+
+    <section class="view" id="msgView">
+      <div class="msg-toolbar">
+        <button class="icon-btn" type="button" id="backBtn" aria-label="Back to Inbox"><svg class="ico"><use href="#i-back"/></svg></button>
+        <span class="sep"></span>
+        <button class="icon-btn" type="button" aria-label="Archive" data-noop><svg class="ico"><use href="#i-archive"/></svg></button>
+        <button class="icon-btn" type="button" aria-label="Report spam" data-noop><svg class="ico"><use href="#i-spam"/></svg></button>
+        <button class="icon-btn" type="button" aria-label="Delete" data-noop><svg class="ico"><use href="#i-trash"/></svg></button>
+        <span class="sep"></span>
+        <button class="icon-btn" type="button" aria-label="Mark as unread" data-noop><svg class="ico"><use href="#i-mail"/></svg></button>
+        <button class="icon-btn" type="button" aria-label="Snooze" data-noop><svg class="ico"><use href="#i-clock"/></svg></button>
+        <button class="icon-btn" type="button" aria-label="More" data-noop><svg class="ico"><use href="#i-more"/></svg></button>
+        <span class="spacer"></span>
+        <button class="report-btn" id="reportBtn" type="button"><svg class="ico"><use href="#i-shield"/></svg>Report Phishing</button>
+      </div>
+      <article class="reader" id="reader" aria-live="polite"></article>
+    </section>
+  </main>
+
+  <aside class="addon-panel" id="addonPanel" aria-label="Report Phishing add-on" hidden>
+    <div class="addon-head">
+      <svg class="shield"><use href="#i-shield"/></svg>Report Phishing
+      <button class="icon-btn" type="button" id="addonClose" aria-label="Close add-on"><svg class="ico"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="addon-body" id="addonBody"></div>
+  </aside>
+
+  <aside class="rail" aria-label="Add-ons">
+    <button class="rail-addon" type="button" aria-label="Calendar" data-noop><span class="rail-dot" style="background:#4285f4"></span></button>
+    <button class="rail-addon" type="button" aria-label="Notes" data-noop><span class="rail-dot" style="background:#fbbc04"></span></button>
+    <button class="rail-addon" type="button" aria-label="Tasks" data-noop><span class="rail-dot" style="background:#34a853"></span></button>
+    <span class="rail-sep"></span>
+    <button class="rail-addon" type="button" id="railReport" aria-label="Open Report Phishing add-on" title="Report Phishing"><svg class="shield"><use href="#i-shield"/></svg></button>
+  </aside>
+</div>
+
+<div class="statusbar" id="statusbar" aria-hidden="true"></div>
+
+<!-- Training page after clicking the link -->
+<div class="overlay" id="trainingOverlay">
+  <div class="dialog training" role="dialog" aria-modal="true" aria-labelledby="trainingTitle">
+    <span class="pill warn">Simulated phishing test</span>
+    <h2 id="trainingTitle">This was a practice phishing email</h2>
+    <p>No information was collected, and nothing has happened to your account. It takes about a minute to see what gave this one away.</p>
+    <div class="tip"><b>1. The sender's address isn't a university address.</b>It came from <span style="font-family:var(--mono)">univ-mailsupport.net</span>, not <span style="font-family:var(--mono)">university.example</span>.</div>
+    <div class="tip"><b>2. It greets you as "Dear Student."</b>Real IT notices usually use your name.</div>
+    <div class="tip"><b>3. It threatens a deadline.</b>"Within 24 hours or incoming mail will be suspended" is meant to rush you.</div>
+    <div class="tip"><b>4. The button goes somewhere else.</b>Hovering showed a link to an outside site, not the university login page.</div>
+    <p style="margin-top:14px">Next time, use the <span class="mini-report">Report Phishing</span> button at the top of the email. You can still report this one now and get credit for it.</p>
+    <div class="actions">
+      <button class="btn" id="trainingClose" type="button">Back to Inbox</button>
+      <button class="btn primary" id="trainingReport" type="button">Report it now</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var START_REPORTS = 2;
+  var state, ticketSeq;
+
+  var PHISH_BODY =
+    '<div class="ext-banner"><svg class="ico" style="flex:none;width:18px;height:18px"><use href="#i-info"/></svg><span><b>External sender.</b> This message came from outside the university. Be careful with links and attachments.</span></div>' +
+    '<div class="body">' +
+      '<p><span class="flag" data-n="2">Dear Student,</span></p>' +
+      '<p>Our records show your university mailbox has reached <b>98% of its storage limit</b>. ' +
+      '<span class="flag" data-n="3">To avoid interruption, you must verify your account within 24 hours or incoming mail will be suspended.</span></p>' +
+      '<p><a href="#" class="cta flag" data-n="4" id="phishLink" data-url="https://univ-mailsupport.net/verify?id=48213&amp;u=student">Verify my account</a></p>' +
+      '<p>Accounts that are not verified will be permanently deactivated and all stored messages will be lost.</p>' +
+      '<p class="sig">Thank you,<br>Mail Services Team<br>IT Support Center</p>' +
+    '</div>' +
+    '<div class="flag-legend" aria-label="Red flags">' +
+      '<h3>Red flags in this email</h3>' +
+      '<ol>' +
+        '<li>Sender domain is <code>univ-mailsupport.net</code>, not the university\'s own domain.</li>' +
+        '<li>Generic greeting instead of your name.</li>' +
+        '<li>A 24-hour deadline and a threat to suspend your mailbox.</li>' +
+        '<li>The button links to an outside site (hover it to see the address at the bottom left).</li>' +
+      '</ol>' +
+    '</div>';
+
+  function freshState(){
+    return {
+      reports: START_REPORTS,
+      clickedPhish: false,
+      view: "message",
+      selected: "phish",
+      spam: 0,
+      addonOpen: false,
+      messages: [
+        {
+          id:"phish", kind:"simulation", unread:true, time:"8:12 AM", color:"#5f6368", initials:"M",
+          from:"Mail Services Team", addr:"it-support@univ-mailsupport.net", addrFlag:true,
+          subject:"Action required: your mailbox is 98% full",
+          preview:"Verify your account within 24 hours to avoid suspension of incoming mail.",
+          html: PHISH_BODY
+        },
+        {
+          id:"parcel", kind:"realphish", unread:true, time:"7:41 AM", color:"#a142f4", initials:"C",
+          from:"Campus Mail Center", addr:"notices@campusparcel-delivery.com",
+          subject:"Package held: confirm your delivery address",
+          preview:"We could not deliver your package. Confirm your address and pay the $1.99 redelivery fee.",
+          html:'<div class="ext-banner"><svg class="ico" style="flex:none;width:18px;height:18px"><use href="#i-info"/></svg><span><b>External sender.</b> This message came from outside the university. Be careful with links and attachments.</span></div>' +
+            '<div class="body"><p>Hello,</p><p>A package addressed to you is being held at the campus mail center because the delivery address was incomplete.</p>' +
+            '<p>Please confirm your address and pay the <b>$1.99 redelivery fee</b> within 48 hours, or the package will be returned to the sender.</p>' +
+            '<p><a href="#" class="cta" id="parcelLink" data-url="https://campusparcel-delivery.com/redeliver?ref=88213">Confirm delivery address</a></p>' +
+            '<p class="sig">Campus Mail Center<br>Delivery Notifications</p>' +
+            '<p class="route-note">Demo note: this example stands in for a <b>real</b> phishing email. It has no simulation marker, so reporting it sends it to an analyst for review.</p></div>'
+        },
+        {
+          id:"reg", kind:"legit", unread:true, time:"Nov 17", color:"#1a73e8", initials:"O",
+          from:"Office of the Registrar", addr:"registrar@university.example",
+          subject:"Spring 2027 registration opens next week",
+          preview:"Check your registration time ticket in the student portal before Monday.",
+          html:'<div class="body"><p>Hi Jordan,</p><p>Registration for the Spring 2027 term opens next week. Your registration time ticket is now posted in the student portal.</p><p>Log in through the portal as usual to see your time and any holds on your account. We will never ask for your password by email.</p><p class="sig">Office of the Registrar</p></div>'
+        },
+        {
+          id:"lib", kind:"legit", unread:true, time:"Nov 16", color:"#188038", initials:"U",
+          from:"University Libraries", addr:"circulation@library.university.example",
+          subject:"Reminder: 1 item due Friday",
+          preview:"Research Methods in Information Security is due Nov 20.",
+          html:'<div class="body"><p>Hi Jordan,</p><p>This is a reminder that the following item is due on Friday, November 20:</p><p><b>Research Methods in Information Security</b></p><p>You can renew it online from your library account if no one has placed a hold on it.</p><p class="sig">University Libraries Circulation</p></div>'
+        }
+      ]
+    };
+  }
+
+  var $ = function(id){ return document.getElementById(id); };
+  var rowsEl = $("rows"), readerEl = $("reader"), statusEl = $("statusbar");
+  var lastFocus = null;
+
+  function find(id){
+    for (var i=0;i<state.messages.length;i++) if (state.messages[i].id===id) return state.messages[i];
+    return null;
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+
+  function renderCounts(){
+    var unread = state.messages.filter(function(m){return m.unread;}).length;
+    $("unreadCount").textContent = unread || "";
+    $("spamCount").textContent = state.spam || "";
+    $("score").textContent = "Reports this semester: " + state.reports;
+    var n = state.messages.length;
+    $("range").textContent = n ? ("1–" + n + " of " + n) : "0 of 0";
+  }
+
+  function renderRows(){
+    rowsEl.innerHTML = "";
+    state.messages.forEach(function(m){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "row" + (m.unread ? " unread" : "") + (m.fresh ? " fresh" : "");
+      b.innerHTML =
+        '<span class="lead"><span class="checkbox"></span><svg class="star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L3.3 9.7l6.1-.6z"/></svg></span>' +
+        '<span class="who">'+esc(m.from)+'</span>' +
+        '<span class="what"><b>'+esc(m.subject)+'</b><span class="snip"> - '+esc(m.preview)+'</span></span>' +
+        '<span class="when">'+esc(m.time)+'</span>';
+      b.addEventListener("click", function(){ openMessage(m.id); });
+      rowsEl.appendChild(b);
+      m.fresh = false;
+    });
+  }
+
+  function renderReader(){
+    var m = find(state.selected);
+    hideStatus();
+    if (!m){ readerEl.innerHTML = ""; return; }
+    $("reportBtn").disabled = !!m.noReport;
+    readerEl.innerHTML =
+      '<div class="subject-row"><h1 class="subject">'+esc(m.subject)+'</h1><span class="label-chip">Inbox</span></div>' +
+      '<div class="sender"><div class="avatar" style="background:'+m.color+'">'+esc(m.initials)+'</div>' +
+        '<div class="sender-main"><div class="sender-line"><span class="sender-name">'+esc(m.from)+'</span>' +
+        (m.addrFlag ? '<span class="sender-addr flag" data-n="1">&lt;'+esc(m.addr)+'&gt;</span>' : '<span class="sender-addr">&lt;'+esc(m.addr)+'&gt;</span>') +
+        '</div><div class="to-line">to me</div></div>' +
+        '<div class="sender-side">'+esc(m.time)+'<span class="icon-btn" aria-hidden="true"><svg class="ico"><use href="#i-star"/></svg></span><span class="icon-btn" aria-hidden="true"><svg class="ico"><use href="#i-reply"/></svg></span></div>' +
+      '</div>' +
+      m.html +
+      '<div class="reply-row"><span class="reply-pill"><svg class="ico"><use href="#i-reply"/></svg>Reply</span><span class="reply-pill"><svg class="ico"><use href="#i-forward"/></svg>Forward</span></div>';
+
+    var link = $("phishLink");
+    if (link){
+      var url = link.getAttribute("data-url");
+      var show = function(){ statusEl.textContent = url; statusEl.classList.add("open"); };
+      link.addEventListener("mouseenter", show);
+      link.addEventListener("focus", show);
+      link.addEventListener("mouseleave", hideStatus);
+      link.addEventListener("blur", hideStatus);
+      link.addEventListener("click", function(e){ e.preventDefault(); clickedPhish(); });
+    }
+    var plink = $("parcelLink");
+    if (plink){
+      var purl = plink.getAttribute("data-url");
+      plink.addEventListener("mouseenter", function(){ statusEl.textContent = purl; statusEl.classList.add("open"); });
+      plink.addEventListener("focus", function(){ statusEl.textContent = purl; statusEl.classList.add("open"); });
+      plink.addEventListener("mouseleave", hideStatus);
+      plink.addEventListener("blur", hideStatus);
+      plink.addEventListener("click", function(e){ e.preventDefault(); toast("This link is turned off in the demo. Try the Report Phishing button."); });
+    }
+    readerEl.scrollTop = 0;
+  }
+
+  function hideStatus(){ statusEl.classList.remove("open"); statusEl.textContent = ""; }
+
+  function renderAddon(){
+    var panel = $("addonPanel"), body = $("addonBody");
+    panel.hidden = !state.addonOpen;
+    $("railReport").classList.toggle("active", state.addonOpen);
+    if (!state.addonOpen) return;
+    var m = state.view === "message" ? find(state.selected) : null;
+    if (!m){
+      body.innerHTML = '<p>Open an email to report it.</p><p class="addon-note">Reports go to the IT Service Desk with the full message and headers.</p>';
+    } else if (m.noReport){
+      body.innerHTML = '<p>This is an automated message from the IT Service Desk, so there is nothing to report.</p>';
+    } else {
+      body.innerHTML =
+        '<p>Think this email is a phishing attempt? Send it to the IT Service Desk for review.</p>' +
+        '<button class="report-btn" type="button" id="addonReport"><svg class="ico"><use href="#i-shield"/></svg>Report this email</button>' +
+        '<p class="addon-note">Sends the full message, including headers. You\'ll get an email with the result.</p>';
+      $("addonReport").addEventListener("click", startReport);
+    }
+  }
+
+  function render(){
+    $("listView").hidden = state.view !== "list";
+    $("msgView").hidden = state.view !== "message";
+    renderCounts();
+    if (state.view === "list") renderRows(); else renderReader();
+    renderAddon();
+  }
+
+  function openMessage(id){
+    state.selected = id;
+    state.view = "message";
+    var m = find(id); if (m) m.unread = false;
+    render();
+  }
+  function showInbox(){ state.view = "list"; render(); }
+
+  /* Dialogs */
+  function openOverlay(id, focusId){
+    lastFocus = document.activeElement;
+    $(id).classList.add("open");
+    var f = $(focusId); if (f) f.focus();
+  }
+  function closeOverlay(id){
+    $(id).classList.remove("open");
+    if (lastFocus && document.body.contains(lastFocus)) lastFocus.focus();
+  }
+  function toast(text){
+    var t = $("toast");
+    t.textContent = text; t.classList.add("open");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function(){ t.classList.remove("open"); }, 3800);
+  }
+
+  /* Reporting flow
+     Training emails carry a simulation marker (hidden header + known sending server),
+     so their reports are closed automatically with an instant red-flags email.
+     Anything without the marker is treated as real and goes to an analyst. */
+  var timers = [];
+  var SIG = '<p class="sig">IT Service Desk<br>This is an automated message.</p>';
+
+  function startReport(){
+    var m = state.view === "message" ? find(state.selected) : null;
+    if (!m || m.noReport) return;
+    doReport(m.id);
+  }
+
+  function addMail(msg){
+    msg.noReport = true; msg.unread = true; msg.fresh = true;
+    msg.time = "Just now"; msg.color = "#3c4043"; msg.initials = "IT";
+    msg.from = "IT Service Desk"; msg.addr = "ittickets@university.example";
+    state.messages.unshift(msg);
+    renderCounts();
+    if (state.view === "list") renderRows();
+  }
+
+  function doReport(id){
+    var m = find(id);
+    if (!m) return;
+    var ticket = ++ticketSeq;
+    state.reports += 1;
+    state.messages = state.messages.filter(function(x){ return x.id !== id; });
+    state.spam += 1;
+    state.view = "list";
+    render();
+
+    if (m.kind === "simulation"){
+      toast("Reported. Recognized as a training simulation.");
+      var clicked = state.clickedPhish;
+      timers.push(setTimeout(function(){ addSimulationMail(ticket, clicked); }, 1200));
+    } else {
+      toast("Reported. Sent to the IT Service Desk for review.");
+      addMail({
+        id:"t"+ticket+"a", kind:"system",
+        subject:"Ticket #"+ticket+" received: Reported phishing email",
+        preview:"Thanks for your report. An analyst will review the message.",
+        html:'<div class="body"><p>Hi Jordan,</p><p>We received your phishing report. An analyst will review the message, and you will get another email from this address when the ticket is closed. You don\'t need to do anything else.</p>' +
+          '<dl class="ticket-meta"><dt>Ticket</dt><dd>#'+ticket+'</dd><dt>Queue</dt><dd>Report a Phishing Email</dd><dt>Status</dt><dd>Waiting for analyst review</dd></dl>' +
+          SIG + '</div>'
+      });
+      timers.push(setTimeout(function(){ addAnalystClosure(m, ticket); }, 6000));
+    }
+  }
+
+  function addSimulationMail(ticket, clicked){
+    var lead = clicked
+      ? '<p>This was a training simulation. You clicked the link first, but you still reported it, and that is exactly what we want. In a real attack, a fast report lets IT block the sender before anyone else falls for it.</p>'
+      : '<p>This was a training simulation, and reporting it was exactly the right call. Here is what gave it away:</p>';
+    addMail({
+      id:"t"+ticket+"s", kind:"system",
+      subject:"Nice catch: that was a simulated phishing email",
+      preview: clicked ? "You clicked, then reported. That still counts. Here are the red flags."
+                       : "This was a training simulation. Here are the red flags you spotted.",
+      html:'<div class="body"><p>Hi Jordan,</p>' + lead +
+        (clicked ? '<p>Here is what gave it away:</p>' : '') +
+        '<ol class="flags-mail">' +
+          '<li><span class="n">1</span><span><b>The sender wasn\'t a university address.</b>It came from univ-mailsupport.net, not university.example.</span></li>' +
+          '<li><span class="n">2</span><span><b>It said "Dear Student."</b>Real IT notices usually use your name.</span></li>' +
+          '<li><span class="n">3</span><span><b>It threatened a 24-hour deadline.</b>Urgent threats to suspend your mailbox are meant to rush you.</span></li>' +
+          '<li><span class="n">4</span><span><b>The button went to an outside site.</b>Hovering showed a link to univ-mailsupport.net, not the university login page.</span></li>' +
+        '</ol>' +
+        '<dl class="ticket-meta"><dt>Ticket</dt><dd>#'+ticket+'</dd><dt>Category</dt><dd>Simulation Report</dd><dt>Status</dt><dd>Closed automatically</dd><dt>Your reports this semester</dt><dd>'+state.reports+'</dd></dl>' +
+        '<p>Keep using the Report Phishing button whenever something looks off.</p>' +
+        SIG + '</div>'
+    });
+    toast("New email: Nice catch");
+  }
+
+  function addAnalystClosure(m, ticket){
+    var comment, action;
+    if (m.kind === "realphish"){
+      comment = "This message was a phishing attempt. We have blocked the sender and removed it from other inboxes. Thank you for helping protect the campus community.";
+      action = "Delete the message if you still have it. If you entered your password anywhere, change it now.";
+    } else {
+      comment = "This message is legitimate and came from a real university office.";
+      action = "No action needed. It is safe to respond to the original message.";
+    }
+    addMail({
+      id:"t"+ticket+"b", kind:"system",
+      subject:"Ticket #"+ticket+" closed: Reported phishing email",
+      preview: comment,
+      html:'<div class="body"><p>Hi Jordan,</p><p>Your ticket has been closed. The analyst left this note:</p>' +
+        '<div class="resolution">'+esc(comment)+'</div>' +
+        '<p><b>What to do:</b> '+esc(action)+'</p>' +
+        '<dl class="ticket-meta"><dt>Ticket</dt><dd>#'+ticket+'</dd><dt>Queue</dt><dd>Report a Phishing Email</dd><dt>Status</dt><dd>Closed by analyst</dd></dl>' +
+        SIG + '</div>'
+    });
+    toast("New email: Ticket #"+ticket+" closed");
+  }
+
+  function clickedPhish(){
+    state.clickedPhish = true;
+    openOverlay("trainingOverlay","trainingClose");
+  }
+
+  /* Wire up */
+  $("reportBtn").addEventListener("click", startReport);
+  $("backBtn").addEventListener("click", showInbox);
+  $("navInbox").addEventListener("click", showInbox);
+  $("railReport").addEventListener("click", function(){ state.addonOpen = !state.addonOpen; renderAddon(); });
+  $("addonClose").addEventListener("click", function(){ state.addonOpen = false; renderAddon(); });
+  $("trainingClose").addEventListener("click", function(){ closeOverlay("trainingOverlay"); });
+  $("trainingReport").addEventListener("click", function(){
+    $("trainingOverlay").classList.remove("open");
+    doReport("phish");
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-noop]"), function(b){
+    b.addEventListener("click", function(){ toast("This button is turned off in the demo."); });
+  });
+
+  $("flagsToggle").addEventListener("click", function(){
+    var on = document.body.classList.toggle("show-flags");
+    this.setAttribute("aria-pressed", on ? "true" : "false");
+    this.textContent = on ? "Hide red flags" : "Show red flags";
+  });
+
+  function reset(){
+    timers.forEach(clearTimeout); timers = [];
+    ticketSeq = 2041870;
+    state = freshState();
+    $("trainingOverlay").classList.remove("open");
+    $("toast").classList.remove("open");
+    find("phish").unread = false;
+    render();
+  }
+  $("resetBtn").addEventListener("click", reset);
+
+  document.addEventListener("keydown", function(e){
+    if (e.key !== "Escape") return;
+    if ($("trainingOverlay").classList.contains("open")) closeOverlay("trainingOverlay");
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>
